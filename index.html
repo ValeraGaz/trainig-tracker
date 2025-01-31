@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <title>Трекер Тренувань</title>
+    
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="tracker.html">Трекер</a></li>
+                    <li><a href="guide.html">Посібник</a></li>
+                    <li><a href="calculator.html">Калькулятор калорій</a></li>
+                </ul>
+            </nav>
+        </header>        
+        <h1>Трекер Тренувань</h1>
+
+        <h2>Створити тренування</h2>
+        <form id="create-workout-form">
+            <label for="workout-name">Назва тренування:</label>
+            <input type="text" id="workout-name" name="name" required>
+            <br>
+            <label for="workout-date">Дата:</label>
+            <input type="date" id="workout-date" name="date" required>
+            <br>
+            <label for="workout-description">Опис:</label>
+            <textarea id="workout-description" name="description"></textarea>
+            <br>
+            <button type="submit">Додати тренування</button>
+        </form>
+
+        <hr>
+        <h2>Список тренувань</h2>
+        <div id="workouts-list"></div>
+        <hr>
+<!--         <div id="progress-section">
+    <form id="progress-form">
+        <label for="exercise-select">Выберите упражнение:</label>
+        <select id="exercise-select">
+            <option value="" disabled selected>Выберите упражнение</option>
+        </select>
+        <button type="submit">Показать прогресс</button>
+    </form>
+    
+</div>
+    <canvas id="progress-chart" width="400" height="200"></canvas> -->
+        <footer>
+            <h2>Валера Гажур ПМ-31</h2>
+        </footer>
+    </div>
+    </div>
+    <script>
+        function loadWorkouts() {
+            fetch('api.php?endpoint=workouts')
+                .then(response => response.json())
+                .then(data => {
+                    const workoutsList = document.getElementById('workouts-list');
+                    workoutsList.innerHTML = '';
+                    data.forEach(workout => {
+                        const workoutDiv = document.createElement('div');
+                        workoutDiv.innerHTML = `
+                            <h3>${workout.name} (${workout.date})</h3>
+                            <p>${workout.description || ''}</p>
+                            <button onclick="deleteWorkout(${workout.id})">Видалити тренування</button>
+                            <button onclick="viewExercises(${workout.id})">Переглянути вправи</button>
+                            <div id="exercises-${workout.id}" style="display: none;">
+                                <!-- Список вправ буде тут -->
+                            </div>
+                        `;
+                        workoutsList.appendChild(workoutDiv);
+                    });
+                });
+        }
+
+        document.getElementById('create-workout-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const name = document.getElementById('workout-name').value;
+            const date = document.getElementById('workout-date').value;
+            const description = document.getElementById('workout-description').value;
+
+            fetch('api.php?endpoint=workouts', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, date, description})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadWorkouts();
+                    document.getElementById('create-workout-form').reset();
+                } else {
+                    alert('Помилка при створенні тренування');
+                }
+            });
+        });
+
+        function deleteWorkout(id) {
+            fetch(`api.php?endpoint=workouts&id=${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadWorkouts();
+                } else {
+                    alert('Помилка при видаленні тренування');
+                }
+            });
+        }
+
+        function viewExercises(workoutId) {
+            const exercisesDiv = document.getElementById(`exercises-${workoutId}`);
+            if (exercisesDiv.style.display === 'none') {
+                fetch(`api.php?endpoint=exercises&workout_id=${workoutId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        exercisesDiv.innerHTML = `
+                            <h4>Вправи</h4>
+                            <ul>
+                                ${data.map(exercise => `
+                                    <li>
+                                        ${exercise.name} - ${exercise.sets} підходів по ${exercise.reps} повторень, вага: ${exercise.weight || 'N/A'}
+                                        <span id="timer-${exercise.i}">00:00</span>
+                    <button onclick="startTimer(${exercise.i})">Старт</button>
+                    <button onclick="stopTimer(${exercise.i})">Стоп</button>
+                    <input type="checkbox" id="done-${exercise.i}" onclick="markAsDone(${exercise.i})">
+                    <label for="done-${exercise.i}">Зроблено</label>
+                                        <button onclick="deleteExercise(${exercise.id}, ${workoutId})">Видалити вправу</button>
+
+                                    </li>
+                                `).join('')}
+
+                            </ul>
+                            <button onclick="showExerciseForm(${workoutId})">Додати вправу</button>
+                            <div id="exercise-form-${workoutId}" style="display: none;">
+                                <!-- Форма додавання вправи -->
+                                <form onsubmit="createExercise(event, ${workoutId})">
+                                    <label for="exercise-name-${workoutId}">Назва вправи:</label>
+                                    <input type="text" id="exercise-name-${workoutId}" required>
+                                    <br>
+                                    <label for="exercise-sets-${workoutId}">Кількість підходів:</label>
+                                    <input type="number" id="exercise-sets-${workoutId}" required>
+                                    <br>
+                                    <label for="exercise-reps-${workoutId}">Кількість повторень:</label>
+                                    <input type="number" id="exercise-reps-${workoutId}" required>
+                                    <br>
+                                    <label for="exercise-weight-${workoutId}">Вага (опціонально):</label>
+                                    <input type="number" id="exercise-weight-${workoutId}" step="0.01">
+                                    <br>
+                                    <button type="submit">Додати вправу</button>
+
+                                </form>
+                            </div>
+                        `;
+                        exercisesDiv.style.display = 'block';
+                    });
+            } else {
+                exercisesDiv.style.display = 'none';
+            }
+        }
+
+        function showExerciseForm(workoutId) {
+            const formDiv = document.getElementById(`exercise-form-${workoutId}`);
+            formDiv.style.display = formDiv.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function createExercise(event, workoutId) {
+            event.preventDefault();
+            const name = document.getElementById(`exercise-name-${workoutId}`).value;
+            const sets = document.getElementById(`exercise-sets-${workoutId}`).value;
+            const reps = document.getElementById(`exercise-reps-${workoutId}`).value;
+            const weight = document.getElementById(`exercise-weight-${workoutId}`).value;
+
+            fetch('api.php?endpoint=exercises', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, workout_id: workoutId, sets, reps, weight})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    viewExercises(workoutId);
+                } else {
+                    alert('Помилка при створенні вправи');
+                }
+            });
+        }
+
+        function deleteExercise(id, workoutId) {
+            fetch(`api.php?endpoint=exercises&id=${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    viewExercises(workoutId);
+                } else {
+                    alert('Помилка при видаленні вправи');
+                }
+            });
+        }
+
+        window.onload = loadWorkouts;
+
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js">
+       function loadExercises() {
+    fetch('api.php?endpoint=exercises')
+        .then(response => response.json())
+        .then(data => {
+            exerciseSelect.innerHTML = ''; 
+            if (data.length > 0) {
+                data.forEach((exercise, index) => {
+                    const option = document.createElement('option');
+                    option.value = exercise.id;
+                    option.textContent = exercise.name;
+                    exerciseSelect.appendChild(option);
+
+
+                    if (index === 0) {
+                        exerciseSelect.value = exercise.id;
+                    }
+                });
+
+
+                const firstExerciseId = data[0].id;
+                if (firstExerciseId) {
+                    showProgress(firstExerciseId);
+                }
+            } else {
+                exerciseSelect.innerHTML = '<option disabled>Нет доступных упражнений</option>';
+            }
+        });
+}
+function showProgress(exerciseId) {
+    fetch(`api.php?endpoint=progress&exercise_id=${exerciseId}`)
+        .then(response => response.json())
+        .then(data => {
+            const labels = data.map(entry => entry.date);
+            const weights = data.map(entry => entry.weight);
+            const sets = data.map(entry => entry.sets);
+            const reps = data.map(entry => entry.reps);
+            const durations = data.map(entry => entry.duration / 60); 
+
+            if (progressChart) progressChart.destroy();
+
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Вес (кг)',
+                            data: weights,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            fill: true,
+                        },
+                        {
+                            label: 'Подходы',
+                            data: sets,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            fill: true,
+                        },
+                        {
+                            label: 'Повторения',
+                            data: reps,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            fill: true,
+                        },
+                        {
+                            label: 'Длительность (минуты)',
+                            data: durations,
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                            fill: true,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                    },
+                },
+            });
+        });
+}
+    </script>
+    <script>
+        let timers = {};
+
+function startTimer(exerciseI) {
+    if (timers[exerciseI]) {
+        clearInterval(timers[exerciseI]);
+    }
+
+    const timerElement = document.getElementById(`timer-${exerciseI}`);
+    let seconds = 0;
+
+    timers[exerciseI] = setInterval(() => {
+        seconds++;
+        const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const secs = (seconds % 60).toString().padStart(2, '0');
+        timerElement.textContent = `${minutes}:${secs}`;
+    }, 1000);
+}
+
+function stopTimer(exerciseI) {
+    if (timers[exerciseI]) {
+        clearInterval(timers[exerciseI]);
+        delete timers[exerciseI];
+    }
+}
+
+function markAsDone(exerciseI) {
+    const isChecked = document.getElementById(`done-${exerciseI}`).checked;
+
+    if (isChecked) {
+        stopTimer(exerciseI);
+        alert('Вправа виконана!');
+    }
+}
+    </script>
+    <script>
+       function stopTimerWithSave(exerciseI, workoutId) {
+    const timerElement = document.getElementById(`timer-${exerciseI}`);
+    const [minutes, seconds] = timerElement.textContent.split(':').map(Number);
+    const duration = minutes * 60 + seconds; // в секундах
+
+    stopTimer(exerciseI);
+
+    fetch('api.php?endpoint=progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            exercise_id: exerciseI,
+            duration,
+            workout_id: workoutId,
+        }),
+    }).then(response => response.json())
+      .then(data => {
+          if (data.success) {
+              alert('Прогресс сохранен!');
+          } else {
+              alert('Ошибка сохранения прогресса.');
+          }
+      });
+}
+    </script>
+<script>
+    progressForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const exerciseId = exerciseSelect.value;
+    showProgress(exerciseId);
+});
+</script>
+<script>
+    function calculateCalories(exerciseType, weight, duration) {
+    const MET = exerciseType === 'cardio' ? 8 : 5; 
+    return Math.round(weight * 0.0175 * MET * (duration / 60));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+CREATE TABLE exercises (
+    id INT AUTO_INCREMENT PRIMARY KEY,            
+    name VARCHAR(255) NOT NULL,                   
+    workout_id INT NOT NULL,                     
+    sets INT NOT NULL,                           
+    reps INT NOT NULL,                           
+    weight DECIMAL(5, 2) DEFAULT NULL,            
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE 
+);
+CREATE TABLE workouts (
+    id INT AUTO_INCREMENT PRIMARY KEY,            
+    name VARCHAR(255) NOT NULL,                   
+    date DATE NOT NULL,                           
+    description TEXT DEFAULT NULL,               
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP 
+);
